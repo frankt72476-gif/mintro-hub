@@ -1,0 +1,1 @@
+﻿Mintro Hub (Phase 1)\n\n- Program: Mintro Hub\n- Repo: mintro-hub\n\nThis repo is the Phase 1 implementation workspace.\n\nStructure (planned):\n- apps/web\n- apps/api\n- packages/shared\n\nGovernance:\n- Program Charter governs umbrella intent.\n- Repo Charter (True North) governs execution here.\n
