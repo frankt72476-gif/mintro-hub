@@ -12,3 +12,6 @@ Guardrail — Avoid deletes during bootstrap: no delete ops until monorepo migra
 - Don’t break: maintain idempotency rule — one underwriting submission per case; stable packageId + unique constraint supports this.
 - Don’t break: keep migration discipline — schema changes must produce a migration (drizzle/) and meta updates; never hand-edit existing migration history.
 - Don’t break: DB migrations should remain an explicit step (deploy/ops), not silently executed on app startup. (sess sess_4e9..., plan plan_sess_...)
+- [2026-02-22T05:10:35.913Z] - Don’t break: keep DATABASE_URL gating behavior (boot OK; DB routes return 501 when unset).
+- Don’t break: no deletes; keep changes scoped to apps/api only unless explicitly accepted.
+- Don’t break: avoid reintroducing (db as any) casts—typed drizzle client is now the standard. (sess sess_f6b..., plan plan_sess_..., exec exec_17717...)

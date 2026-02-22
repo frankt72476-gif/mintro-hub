@@ -22,3 +22,11 @@
   - Run Checks: git diff --stat OK, git diff --check OK, npm run build OK
 - ✅ Delivered to remote:
   - main pushed: e2d4bff → 5a6a3e8 (sess sess_4e9..., plan plan_sess_...)
+- [2026-02-22T05:10:35.886Z] - ✅ API: tightened DB-backed routes and typing for Phase 1.
+  - makeDb now binds drizzle schema: drizzle(pool, { schema })
+  - POST /merchants uses typed db inserts (removed (db as any) casts)
+  - GET /cases/:id uses typed column refs (caseRecord.id, merchant.id)
+  - caseType validation: only {low_risk, high_risk} accepted (defaults to low_risk)
+  - invalid JSON now returns 400 (instead of 500)
+- ✅ Verification:
+  - Run Checks OK (git diff --stat, git diff --check, npm run build) (sess sess_f6b..., plan plan_sess_..., exec exec_17717...)
