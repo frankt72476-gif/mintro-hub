@@ -18,7 +18,13 @@ async function readJson(req: http.IncomingMessage) {
   for await (const c of req) chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(String(c)));
   const raw = Buffer.concat(chunks).toString("utf8").trim();
   if (!raw) return null;
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const err: any = new Error("invalid JSON");
+    err.statusCode = 400;
+    throw err;
+  }
 }
 
 function getDbOrNull() {
@@ -54,10 +60,10 @@ const server = http.createServer(async (req, res) => {
       const cId = randomUUID();
       const now = new Date();
 
-      const caseType = String(body.caseType || "low_risk").trim() || "low_risk";
+      const caseTypeRaw = String(body.caseType || "low_risk").trim() || "low_risk";
+      const caseType = caseTypeRaw === "high_risk" ? "high_risk" : "low_risk";
 
-      // Insert merchant + case + audit event
-      await (db as any).insert(merchant).values({
+      await db!.insert(merchant).values({
         id: mId,
         legalName,
         dbaName: body.dbaName ? String(body.dbaName) : null,
@@ -69,7 +75,7 @@ const server = http.createServer(async (req, res) => {
         updatedAt: now,
       });
 
-      await (db as any).insert(caseRecord).values({
+      await db!.insert(caseRecord).values({
         id: cId,
         merchantId: mId,
         type: caseType,
@@ -80,7 +86,7 @@ const server = http.createServer(async (req, res) => {
         updatedAt: now,
       });
 
-      await (db as any).insert(auditEvent).values({
+      await db!.insert(auditEvent).values({
         id: randomUUID(),
         at: now,
         actorRole: "system",
@@ -98,11 +104,11 @@ const server = http.createServer(async (req, res) => {
     const m = path.match(/^\/cases\/([0-9a-fA-F-]+)$/);
     if (method === "GET" && m) {
       const id = m[1];
-      const rows = await (db as any).select().from(caseRecord).where(eq((caseRecord as any).id, id)).limit(1);
+      const rows = await db!.select().from(caseRecord).where(eq(caseRecord.id, id)).limit(1);
       if (!rows || !rows.length) return json(res, 404, { ok: false, error: "case not found" });
       const c = rows[0];
 
-      const mRows = await (db as any).select().from(merchant).where(eq((merchant as any).id, c.merchantId)).limit(1);
+      const mRows = await db!.select().from(merchant).where(eq(merchant.id, c.merchantId)).limit(1);
       const merch = mRows && mRows.length ? mRows[0] : null;
 
       return json(res, 200, { ok: true, case: c, merchant: merch });
@@ -110,7 +116,8 @@ const server = http.createServer(async (req, res) => {
 
     return json(res, 404, { ok: false, error: "not found" });
   } catch (e: any) {
-    return json(res, 500, { ok: false, error: e?.message || String(e) });
+    const status = Number(e?.statusCode || 500);
+    return json(res, status, { ok: false, error: e?.message || String(e) });
   }
 });
 
