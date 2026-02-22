@@ -39,3 +39,23 @@ export const caseRecord = pgTable("case", {
 
   assignedAgentId: text("assigned_agent_id") // placeholder; later becomes FK to agent.id
 });
+
+
+export const documentRecord = pgTable("document", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+
+  caseId: uuid("case_id").notNull(),
+  kind: text("kind").notNull(), // e.g. bank_statement | processing_statement | ein_letter | void_check | other
+
+  objectKey: text("object_key").notNull(), // encrypted object storage key/path
+  sha256: text("sha256").notNull(),
+
+  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+  uploadedByRole: text("uploaded_by_role").notNull(), // merchant | agent | ops | system
+  uploadedById: text("uploaded_by_id"),
+
+  retentionExpiry: timestamp("retention_expiry", { withTimezone: true }).notNull(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  deleteReason: text("delete_reason")
+});
