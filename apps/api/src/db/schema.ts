@@ -1,4 +1,4 @@
-﻿import { pgTable, text, timestamp, uuid, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const auditEvent = pgTable("audit_event", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -10,7 +10,6 @@ export const auditEvent = pgTable("audit_event", {
   entityId: text("entity_id").notNull(),
   metaJson: text("meta_json")                // JSON string for now; can switch to jsonb later
 });
-
 
 export const merchant = pgTable("merchant", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -27,57 +26,75 @@ export const merchant = pgTable("merchant", {
   status: text("status").notNull().default("draft") // draft | invited | submitted | approved | declined
 });
 
-export const caseRecord = pgTable("case", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+export const caseRecord = pgTable(
+  "case",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 
-  merchantId: uuid("merchant_id").notNull(),
-  type: text("type").notNull(),   // low_risk | high_risk
-  status: text("status").notNull().default("open"), // open | needs_info | submitted | closed
-  stage: text("stage").notNull().default("intake"), // intake | preapproval | underwriting | delivered | received
+    merchantId: uuid("merchant_id").notNull().references(() => merchant.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),   // low_risk | high_risk
+    status: text("status").notNull().default("open"), // open | needs_info | submitted | closed
+    stage: text("stage").notNull().default("intake"), // intake | preapproval | underwriting | delivered | received
 
-  assignedAgentId: text("assigned_agent_id") // placeholder; later becomes FK to agent.id
-});
+    assignedAgentId: text("assigned_agent_id") // placeholder; later becomes FK to agent.id
+  },
+  (t) => ({
+    merchantIdIdx: index("case_merchant_id_idx").on(t.merchantId)
+  })
+);
 
+export const documentRecord = pgTable(
+  "document",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 
-export const documentRecord = pgTable("document", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    caseId: uuid("case_id").notNull().references(() => caseRecord.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // e.g. bank_statement | processing_statement | ein_letter | void_check | other
 
-  caseId: uuid("case_id").notNull(),
-  kind: text("kind").notNull(), // e.g. bank_statement | processing_statement | ein_letter | void_check | other
+    objectKey: text("object_key").notNull(), // encrypted object storage key/path
+    sha256: text("sha256").notNull(),
 
-  objectKey: text("object_key").notNull(), // encrypted object storage key/path
-  sha256: text("sha256").notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+    uploadedByRole: text("uploaded_by_role").notNull(), // merchant | agent | ops | system
+    uploadedById: text("uploaded_by_id"),
 
-  uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
-  uploadedByRole: text("uploaded_by_role").notNull(), // merchant | agent | ops | system
-  uploadedById: text("uploaded_by_id"),
+    retentionExpiry: timestamp("retention_expiry", { withTimezone: true }).notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deleteReason: text("delete_reason")
+  },
+  (t) => ({
+    caseIdIdx: index("document_case_id_idx").on(t.caseId)
+  })
+);
 
-  retentionExpiry: timestamp("retention_expiry", { withTimezone: true }).notNull(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  deleteReason: text("delete_reason")
-});
+export const submissionRecord = pgTable(
+  "submission",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 
+    caseId: uuid("case_id").notNull().references(() => caseRecord.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // preapproval | underwriting
 
-export const submissionRecord = pgTable("submission", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    packageId: text("package_id").notNull(),
+    status: text("status").notNull().default("queued"), // queued | delivered | received | failed
 
-  caseId: uuid("case_id").notNull(),
-  kind: text("kind").notNull(), // preapproval | underwriting
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }),
+    ewiId: text("ewi_id"),
 
-  packageId: text("package_id").notNull(),
-  status: text("status").notNull().default("queued"), // queued | delivered | received | failed
-
-  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
-  receivedAt: timestamp("received_at", { withTimezone: true }),
-  ewiId: text("ewi_id"),
-
-  attemptCount: integer("attempt_count").notNull().default(0),
-  lastError: text("last_error")
-});
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error")
+  },
+  (t) => ({
+    caseIdIdx: index("submission_case_id_idx").on(t.caseId),
+    caseKindIdx: index("submission_case_id_kind_idx").on(t.caseId, t.kind),
+    packageIdUq: uniqueIndex("submission_package_id_uq").on(t.packageId)
+  })
+);
 
 export const statusMappingConfig = pgTable("status_mapping_config", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -86,7 +103,6 @@ export const statusMappingConfig = pgTable("status_mapping_config", {
   name: text("name").notNull().default("default"),
   mappingJson: text("mapping_json").notNull() // JSON string for now; can switch to jsonb later
 });
-
 
 export const checklistConfig = pgTable("checklist_config", {
   id: uuid("id").primaryKey().defaultRandom(),
