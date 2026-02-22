@@ -1,4 +1,4 @@
-﻿import { pgTable, text, timestamp, uuid, integer } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, timestamp, uuid, integer, boolean } from "drizzle-orm/pg-core";
 
 export const auditEvent = pgTable("audit_event", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -85,4 +85,16 @@ export const statusMappingConfig = pgTable("status_mapping_config", {
 
   name: text("name").notNull().default("default"),
   mappingJson: text("mapping_json").notNull() // JSON string for now; can switch to jsonb later
+});
+
+
+export const checklistConfig = pgTable("checklist_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+
+  name: text("name").notNull().default("default"),
+  active: boolean("active").notNull().default(true),
+
+  configJson: text("config_json").notNull() // JSON string for now; can switch to jsonb later
 });
