@@ -1,4 +1,4 @@
-﻿import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+﻿import { pgTable, text, timestamp, uuid, integer } from "drizzle-orm/pg-core";
 
 export const auditEvent = pgTable("audit_event", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -58,4 +58,31 @@ export const documentRecord = pgTable("document", {
   retentionExpiry: timestamp("retention_expiry", { withTimezone: true }).notNull(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   deleteReason: text("delete_reason")
+});
+
+
+export const submissionRecord = pgTable("submission", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+
+  caseId: uuid("case_id").notNull(),
+  kind: text("kind").notNull(), // preapproval | underwriting
+
+  packageId: text("package_id").notNull(),
+  status: text("status").notNull().default("queued"), // queued | delivered | received | failed
+
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  receivedAt: timestamp("received_at", { withTimezone: true }),
+  ewiId: text("ewi_id"),
+
+  attemptCount: integer("attempt_count").notNull().default(0),
+  lastError: text("last_error")
+});
+
+export const statusMappingConfig = pgTable("status_mapping_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+
+  name: text("name").notNull().default("default"),
+  mappingJson: text("mapping_json").notNull() // JSON string for now; can switch to jsonb later
 });
